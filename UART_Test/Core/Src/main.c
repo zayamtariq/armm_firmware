@@ -468,6 +468,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   /* NOTE: This function should not be modified, when the callback is needed,
            the HAL_UART_RxCpltCallback could be implemented in the user file
    */
+  __disable_irq();
+
   uint8_t i;
   if (huart->Instance == USART2) { // make sure we're working with our correct instance of UART (PA2-3 = USART2 TX/RX)
 
@@ -485,8 +487,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		  HAL_UART_Transmit(&huart2, (uint8_t *)"\n\r", 2, 100);
 
 		  char command[6];
-		  char motorIdentifier[10]; // which motor is it that we are driving?
-		  int32_t motorValue; /* value represents different things based on command:
+		  int motorValue1, motorValue2, motorValue3, motorValue4, motorValue5, motorValue6;
+		  	  	  	  	   /* value represents different things based on command:
 		  	  	  	  	  - MOVE: how many steps will we be sending the motor?
 		  	  	  	  	  - FREQ: what period do we want to change it to?
 		   	   	   	   	   */
@@ -518,65 +520,44 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		   */
 
 
-		  if (sscanf((char *)rx_buffer, "%s %s %d", command, motorIdentifier, &motorValue) == 2) {
-			  if (!(strcmp(command, "MOVE"))) { // move motor N pulses
-				  if (!strcmp(motorIdentifier, "MOTOR1")) {
+		  if (sscanf((char *)rx_buffer, "%s %d %d %d %d %d %d", command, &motorValue1, &motorValue2, &motorValue3, &motorValue4, &motorValue5, &motorValue6) == 6) {
+			  if (!(strcmp(command, "MOTOR"))) { // move motor N pulses
 
-					  motor1_steps = motorValue;
-					  HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_1);
-					  if (motorValue < 0) HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET); // set direction pin low for negative
-					  else HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET); // set direction pin high for positive
+				  // populate steps left counter
+				  motor1_steps = motorValue1;
+				  motor2_steps = motorValue2;
+				  motor3_steps = motorValue3;
+				  motor4_steps = motorValue4;
+				  motor5_steps = motorValue5;
+				  motor6_steps = motorValue6;
 
-				  } else if (!strcmp(motorIdentifier, "MOTOR2")) {
 
-					  motor2_steps = motorValue;
-					  HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_2);
-					  if (motorValue < 0) HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_RESET);
-					  else HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_SET);
+				  /* set direction pins */
+				  if (motorValue1 < 0) HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET); // set direction pin low for negative
+				  else HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET); // set direction pin high for positive
 
-				  } else if (!strcmp(motorIdentifier, "MOTOR3")) {
+				  if (motorValue2 < 0) HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_RESET);
+				  else HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_SET);
 
-					  motor3_steps = motorValue;
-					  HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_1);
-					  if (motorValue < 0) HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
-					  else HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+				  if (motorValue3 < 0) HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
+				  else HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
 
-				  } else if (!strcmp(motorIdentifier, "MOTOR4")) {
+				  if (motorValue4 < 0) HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_RESET);
+				  else HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_SET);
 
-					  motor4_steps = motorValue;
-					  HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_2);
-					  if (motorValue < 0) HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_RESET);
-					  else HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_SET);
+				  if (motorValue5 < 0) HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_RESET);
+				  else HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_SET);
 
-				  } else if (!strcmp(motorIdentifier, "MOTOR5")) {
+				  if (motorValue6 < 0) HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_RESET);
+				  else HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_SET);
 
-					  motor5_steps = motorValue;
-					  HAL_TIM_PWM_Start_IT(&htim4, TIM_CHANNEL_1);
-					  if (motorValue < 0) HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_RESET);
-					  else HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_SET);
-
-				  } else if (!strcmp(motorIdentifier, "MOTOR6")) {
-
-					  motor6_steps = motorValue;
-					  HAL_TIM_PWM_Start_IT(&htim4, TIM_CHANNEL_2);
-					  if (motorValue < 0) HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_RESET);
-					  else HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_SET);
-				  }
-			  }
-			  else if (!strcmp(command, "FREQ")) { // change period
-				  if (!strcmp(motorIdentifier, "MOTOR1")) {
-					  __HAL_TIM_SET_AUTORELOAD(&htim1, motorValue);
-				  } else if (!strcmp(motorIdentifier, "MOTOR2")) {
-					  __HAL_TIM_SET_AUTORELOAD(&htim2, motorValue);
-				  } else if (!strcmp(motorIdentifier, "MOTOR3")) {
-					  __HAL_TIM_SET_AUTORELOAD(&htim3, motorValue);
-				  } else if (!strcmp(motorIdentifier, "MOTOR4")) {
-					  __HAL_TIM_SET_AUTORELOAD(&htim4, motorValue);
-				  } else if (!strcmp(motorIdentifier, "MOTOR5")) {
-					  __HAL_TIM_SET_AUTORELOAD(&htim5, motorValue);
-				  } else if (!strcmp(motorIdentifier, "MOTOR6")) {
-					  __HAL_TIM_SET_AUTORELOAD(&htim6, motorValue);
-				  }
+				  /* start motors again */
+				  if (motor1_steps != 0) HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_1);
+				  if (motor2_steps != 0) HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_2);
+				  if (motor3_steps != 0) HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_1);
+				  if (motor4_steps != 0) HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_2);
+				  if (motor5_steps != 0) HAL_TIM_PWM_Start_IT(&htim4, TIM_CHANNEL_1);
+				  if (motor6_steps != 0) HAL_TIM_PWM_Start_IT(&htim4, TIM_CHANNEL_2);
 			  }
 		  }
 
@@ -586,6 +567,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	  HAL_UART_Transmit(&huart2, rx_data, strlen((char *)rx_data), 100); // initialize to transmit as we write new data to the rx_data byte(s)
 
   }
+
+  __enable_irq();
 }
 
 // this function gets called every time that *some* PWM timer sends a pulse
