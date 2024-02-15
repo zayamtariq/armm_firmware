@@ -520,7 +520,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		   */
 
 
-		  if (sscanf((char *)rx_buffer, "%s %d %d %d %d %d %d", command, &motorValue1, &motorValue2, &motorValue3, &motorValue4, &motorValue5, &motorValue6) == 6) {
+		  if (sscanf((char *)rx_buffer, "%s %d %d %d %d %d %d", command, &motorValue1, &motorValue2, &motorValue3, &motorValue4, &motorValue5, &motorValue6) == 7) {
 			  if (!(strcmp(command, "MOTOR"))) { // move motor N pulses
 
 				  // populate steps left counter
@@ -558,6 +558,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 				  if (motor4_steps != 0) HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_2);
 				  if (motor5_steps != 0) HAL_TIM_PWM_Start_IT(&htim4, TIM_CHANNEL_1);
 				  if (motor6_steps != 0) HAL_TIM_PWM_Start_IT(&htim4, TIM_CHANNEL_2);
+
+				  // just to see some signs of life
+				  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 			  }
 		  }
 
