@@ -24,6 +24,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "UARTBuffer.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,7 +51,7 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 
 // transmit
-uint8_t tx_buffer[23] = "aeybel is a sexy bitch\n";
+uint8_t tx_buffer[23] = "aeybel is a smart mann\n";
 
 // receive
 uint8_t rx_indx;
@@ -521,9 +522,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 
 		  if (sscanf((char *)rx_buffer, "%s %d %d %d %d %d %d", command, &motorValue1, &motorValue2, &motorValue3, &motorValue4, &motorValue5, &motorValue6) == 7) {
+
 			  if (!(strcmp(command, "MOTOR"))) { // move motor N pulses
 
-				  // populate steps left counter
+				  // populate counter for the number of steps left
 				  motor1_steps = motorValue1;
 				  motor2_steps = motorValue2;
 				  motor3_steps = motorValue3;
