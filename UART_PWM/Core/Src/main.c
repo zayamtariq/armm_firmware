@@ -190,14 +190,6 @@ int main(void)
   // initialize UART buffer:
   initializeBuffer(&IK_Message_Buffer);
 
-  // start interrupt-based PWM timers:
-  HAL_TIM_PWM_Start_IT(&htim1, TIM_CHANNEL_1);
-  HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_1);
-  HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_1);
-  HAL_TIM_PWM_Start_IT(&htim4, TIM_CHANNEL_1);
-  HAL_TIM_PWM_Start_IT(&htim8, TIM_CHANNEL_1);
-  HAL_TIM_PWM_Start_IT(&htim12, TIM_CHANNEL_1);
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -210,7 +202,7 @@ int main(void)
 	  if (motor1_steps == 0 && motor2_steps == 0 && motor3_steps == 0 && motor4_steps == 0 && motor5_steps == 0 && motor6_steps == 0) {
 		  // now we can pop off of the UART buffer and re-instantiate all of our variables
 		  UartMessage recent_command = removeFromBuffer(&IK_Message_Buffer, &huart2);
-		  if (!(strcmp(recent_command.message, '\0'))) {} // if there are no messages to pop, we'll continue going on
+		  if (!(strcmp(recent_command.message, "\0"))) {} // if there are no messages to pop, we'll continue going on
 		  else {
 			  char command[6];
 			  int motorValue1, motorFrequency1, motorValue2, motorFrequency2, motorValue3, motorFrequency3, motorValue4, motorFrequency4, motorValue5, motorFrequency5, motorValue6, motorFrequency6;
@@ -887,6 +879,7 @@ static void MX_GPIO_Init(void)
 void accelerationTimerISR()
 {
 	// update frequency of pwm timers
+	HAL_UART_Transmit(&huart2, (uint8_t *)"timer isr called\n", 17, 100);
 
 	if (motor1_steps >= accel1) {
 		current_freq1 += incrementer_decrementer1;
@@ -981,7 +974,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 		  /* NOW NEED TO ADD THIS TO OUR UART BUFFER */
 		  while (!addToBuffer(&IK_Message_Buffer, (const char *) rx_buffer, huart)) {
-			  HAL_UART_Transmit(huart, (const *) "Buffer Full\n", 12, 100);
+			  HAL_UART_Transmit(&huart2, (uint8_t *) "Buffer Full\n", 12, 100);
 			  __enable_irq();
 			  // if all pwm callbacks are done then we can reliably push a message off the uart buffer here
 			  __disable_irq();
@@ -1003,11 +996,14 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 // this function gets called every time that *some* PWM timer sends a pulse
 void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 {
+	HAL_UART_Transmit(&huart2, (uint8_t *)"PULSE\n", 6, 100);
+
 	if (htim->Instance == TIM1) {
 		// --global_motor_flag;
 		if (motor1_steps != 0) --motor1_steps;
 		// if (global motor flag == 0) {disable interrupt, motherfucker!};
 		if (motor1_steps == 0) {
+			HAL_UART_Transmit(&huart2, (uint8_t *)"1\n", 2, 100);
 			HAL_TIM_PWM_Stop_IT(&htim1, TIM_CHANNEL_1);
 		}
 	}
