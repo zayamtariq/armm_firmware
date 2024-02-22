@@ -205,15 +205,17 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+
+	  /* USER CODE BEGIN 3 */
 	  if (motor1_steps == 0 && motor2_steps == 0 && motor3_steps == 0 && motor4_steps == 0 && motor5_steps == 0 && motor6_steps == 0) {
 		  // now we can pop off of the UART buffer and re-instantiate all of our variables
 		  UartMessage recent_command = removeFromBuffer(&IK_Message_Buffer, &huart2);
 		  if (!(strcmp(recent_command.message, '\0'))) {} // if there are no messages to pop, we'll continue going on
 		  else {
 			  char command[6];
-			  int motorSteps1, motorFrequency1, motorSteps2, motorFrequency2, motorSteps3, motorFrequency3, motorSteps4, motorFrequency4, motorSteps5, motorFrequency5, motorSteps6, motorFrequency6;
+			  int motorValue1, motorFrequency1, motorValue2, motorFrequency2, motorValue3, motorFrequency3, motorValue4, motorFrequency4, motorValue5, motorFrequency5, motorValue6, motorFrequency6;
 			  /* command - MOTOR
-			   * motorStepsn - how many pulses are being sent to the motor
+			   * motorValuen - how many pulses are being sent to the motor
 			   * motorFrequencyn - in units of [steps per second]
 			   */
 
@@ -344,7 +346,6 @@ int main(void)
 		  }
 	  }
   }
-  /* USER CODE BEGIN 3 */
   /* USER CODE END 3 */
 }
 
@@ -891,7 +892,7 @@ void accelerationTimerISR()
 		current_freq1 += incrementer_decrementer1;
 	} else if (motor1_steps <= decel1 && motor1_steps != 0) {
 		current_freq1 -= incrementer_decrementer1;
-	} else if (motor1_steps > accel1 && motor1_steps < decel1) {
+	} else if (motor1_steps < accel1 && motor1_steps > decel1) {
 		current_freq1 = total_freq1;
 	}
 
@@ -899,7 +900,7 @@ void accelerationTimerISR()
 		current_freq2 += incrementer_decrementer2;
 	} else if (motor2_steps <= decel2 && motor2_steps != 0) {
 		current_freq2 -= incrementer_decrementer2;
-	} else if (motor2_steps > accel2 && motor2_steps < decel2) {
+	} else if (motor2_steps < accel2 && motor2_steps > decel2) {
 		current_freq2 = total_freq2;
 	}
 
@@ -907,7 +908,7 @@ void accelerationTimerISR()
 		current_freq3 += incrementer_decrementer3;
 	} else if (motor3_steps <= decel3 && motor3_steps != 0) {
 		current_freq3 -= incrementer_decrementer3;
-	} else if (motor3_steps > accel3 && motor3_steps < decel3) {
+	} else if (motor3_steps < accel3 && motor3_steps > decel3) {
 		current_freq3 = total_freq3;
 	}
 
@@ -915,7 +916,7 @@ void accelerationTimerISR()
 		current_freq4 += incrementer_decrementer4;
 	} else if (motor4_steps <= decel1 && motor4_steps != 0) {
 		current_freq4 -= incrementer_decrementer4;
-	} else if (motor4_steps > accel1 && motor4_steps < decel1) {
+	} else if (motor4_steps < accel1 && motor4_steps > decel1) {
 		current_freq4 = total_freq4;
 	}
 
@@ -923,7 +924,7 @@ void accelerationTimerISR()
 		current_freq5 += incrementer_decrementer5;
 	} else if (motor5_steps <= decel5 && motor5_steps != 0) {
 		current_freq5 -= incrementer_decrementer5;
-	} else if (motor5_steps > accel5 && motor5_steps < decel5) {
+	} else if (motor5_steps < accel5 && motor5_steps > decel5) {
 		current_freq5 = total_freq5;
 	}
 
@@ -931,7 +932,7 @@ void accelerationTimerISR()
 		current_freq6 += incrementer_decrementer6;
 	} else if (motor6_steps <= decel6 && motor6_steps != 0) {
 		current_freq6 -= incrementer_decrementer6;
-	} else if (motor6_steps > accel6 && motor6_steps < decel6) {
+	} else if (motor6_steps < accel6 && motor6_steps > decel6) {
 		current_freq6 = total_freq6;
 	}
 
@@ -980,6 +981,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 		  /* NOW NEED TO ADD THIS TO OUR UART BUFFER */
 		  while (!addToBuffer(&IK_Message_Buffer, (const char *) rx_buffer, huart)) {
+			  HAL_UART_Transmit(huart, (const *) "Buffer Full\n", 12, 100);
 			  __enable_irq();
 			  // if all pwm callbacks are done then we can reliably push a message off the uart buffer here
 			  __disable_irq();

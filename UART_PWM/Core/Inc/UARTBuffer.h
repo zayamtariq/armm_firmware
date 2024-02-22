@@ -3,7 +3,7 @@
 #include "stm32f4xx_hal.h"
 
 #define BUFFER_SIZE 100		// subject to change
-#define MAX_MESSAGE_SIZE 60 // enough for 3 digits for all motor and frequency inputs
+#define MAX_MESSAGE_SIZE 100 // enough for 4 digits for all motor and frequency inputs
 
 // Structure to represent a UART message
 typedef struct {

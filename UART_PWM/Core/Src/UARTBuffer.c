@@ -21,7 +21,6 @@ int addToBuffer(UartBuffer * buffer, const char * message, UART_HandleTypeDef *h
         buffer->count++;
         return 1;
 	} else {
-		HAL_UART_TRANSMIT(huart, (const *) "Buffer Full\n", 12, 100);
 		return 0;
 	}
 }
@@ -37,7 +36,6 @@ UartMessage removeFromBuffer(UartBuffer * buffer, UART_HandleTypeDef *huart) {
         buffer->count--;
         return dequeuedMessage;
 	} else {
-		HAL_UART_TRANSMIT(huart, (const *) "Buffer Underflow\n", 17, 100);
 		return underflowMessage;
 	}
 }
