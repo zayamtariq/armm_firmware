@@ -56,9 +56,6 @@ UART_HandleTypeDef huart2;
 
 /* UART VARIABLES: */
 
-// transmit
-uint8_t tx_buffer[23] = "aeybel is a smart mann\n";
-
 // receive
 uint8_t rx_indx;
 uint8_t rx_data[2]; // how much data are we receiving at a time (2 bytes currently)
@@ -71,22 +68,12 @@ UartBuffer IK_Message_Buffer;
 /* MOTOR VARIABLES: */
 
 // for counting steps left for each motor
-uint16_t motor1_steps = 0;
-uint16_t motor2_steps = 0;
-uint16_t motor3_steps = 0;
-uint16_t motor4_steps = 0;
-uint16_t motor5_steps = 0;
-uint16_t motor6_steps = 0;
-
-// for storing the total number of steps for motor at start (updated at uart message)
-// dont think we need this anymore
-/*
-uint16_t total_motor1_steps = 0;
-uint16_t total_motor2_steps = 0;
-uint16_t total_motor3_steps = 0;
-uint16_t total_motor4_steps = 0;
-uint16_t total_motor5_steps = 0;
-uint16_t total_motor6_steps = 0;*/
+int motor1_steps = 0;
+int motor2_steps = 0;
+int motor3_steps = 0;
+int motor4_steps = 0;
+int motor5_steps = 0;
+int motor6_steps = 0;
 
 // for holding acceleration and decleration constants for each motor (calculated after parsing uart message)
 /*
@@ -190,6 +177,9 @@ int main(void)
   // initialize UART buffer:
   initializeBuffer(&IK_Message_Buffer);
 
+  // start timer 11
+  HAL_TIM_Base_Start_IT(&htim11);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -198,7 +188,7 @@ int main(void)
   {
     /* USER CODE END WHILE */
 
-	  /* USER CODE BEGIN 3 */
+    /* USER CODE BEGIN 3 */
 	  if (motor1_steps == 0 && motor2_steps == 0 && motor3_steps == 0 && motor4_steps == 0 && motor5_steps == 0 && motor6_steps == 0) {
 		  // now we can pop off of the UART buffer and re-instantiate all of our variables
 		  UartMessage recent_command = removeFromBuffer(&IK_Message_Buffer, &huart2);
@@ -245,16 +235,6 @@ int main(void)
 					  motor4_steps = motorValue4;
 					  motor5_steps = motorValue5;
 					  motor6_steps = motorValue6;
-
-					  // populate the total number of steps -- this will not change until the next uart message is processed
-					  // (dont think we need this for our implementation)
-					  /*
-					  total_motor1_steps = motorValue1;
-					  total_motor2_steps = motorValue2;
-					  total_motor3_steps = motorValue3;
-					  total_motor4_steps = motorValue4;
-					  total_motor5_steps = motorValue5;
-					  total_motor6_steps = motorValue6;*/
 
 					  // populate total frequency trying to reach
 					  total_freq1 = motorFrequency1;
@@ -306,7 +286,7 @@ int main(void)
 					  else HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_SET);
 
 					  // calculate incrementer for acceleration based GPIO:
-					  // formula -> incrementer_decrementerN = (SPS / 2) * ((total number of pulses) * 2 / 10)
+					  // formula -> incrementer_decrementerN = (SPS / 2) / ((total number of pulses) * 2 / 10)
 					  incrementer_decrementer1 = (motorFrequency1 * 5) / (2 * motorValue1);
 					  incrementer_decrementer2 = (motorFrequency2 * 5) / (2 * motorValue2);
 					  incrementer_decrementer3 = (motorFrequency3 * 5) / (2 * motorValue3);
@@ -733,7 +713,7 @@ static void MX_TIM11_Init(void)
   htim11.Instance = TIM11;
   htim11.Init.Prescaler = 0;
   htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim11.Init.Period = 500;
+  htim11.Init.Period = 65535;
   htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim11.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim11) != HAL_OK)
@@ -879,7 +859,6 @@ static void MX_GPIO_Init(void)
 void accelerationTimerISR()
 {
 	// update frequency of pwm timers
-	HAL_UART_Transmit(&huart2, (uint8_t *)"timer isr called\n", 17, 100);
 
 	if (motor1_steps >= accel1) {
 		current_freq1 += incrementer_decrementer1;
@@ -1002,7 +981,7 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 		// --global_motor_flag;
 		if (motor1_steps != 0) --motor1_steps;
 		// if (global motor flag == 0) {disable interrupt, motherfucker!};
-		if (motor1_steps == 0) {
+		if (motor1_steps <= 0) {
 			HAL_UART_Transmit(&huart2, (uint8_t *)"1\n", 2, 100);
 			HAL_TIM_PWM_Stop_IT(&htim1, TIM_CHANNEL_1);
 		}
@@ -1011,7 +990,7 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 		// --global_motor_flag;
 		if (motor2_steps != 0) --motor2_steps;
 		// if (global motor flag == 0) {disable interrupt, motherfucker!};
-		if (motor2_steps == 0) {
+		if (motor2_steps <= 0) {
 			HAL_TIM_PWM_Stop_IT(&htim2, TIM_CHANNEL_1);
 		}
 	}
@@ -1020,7 +999,7 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
     	// --global_motor_flag;
 		if (motor3_steps != 0) --motor3_steps;
 		// if (global motor flag == 0) {disable interrupt, motherfucker!};
-		if (motor3_steps == 0) {
+		if (motor3_steps <= 0) {
 			HAL_TIM_PWM_Stop_IT(&htim3, TIM_CHANNEL_1);
 		}
     }
@@ -1028,7 +1007,7 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
     	// --global_motor_flag;
 		if (motor4_steps != 0) --motor4_steps;
 		// if (global motor flag == 0) {disable interrupt, motherfucker!};
-		if (motor4_steps == 0) {
+		if (motor4_steps <= 0) {
 			HAL_TIM_PWM_Stop_IT(&htim4, TIM_CHANNEL_1);
 		}
 	}
@@ -1036,7 +1015,7 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
     	// --global_motor_flag;
 		if (motor5_steps != 0) --motor5_steps;
 		// if (global motor flag == 0) {disable interrupt, motherfucker!};
-		if (motor5_steps == 0) {
+		if (motor5_steps <= 0) {
 			HAL_TIM_PWM_Stop_IT(&htim8, TIM_CHANNEL_1);
 		}
 	}
@@ -1044,7 +1023,7 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
     	// --global_motor_flag;
 		if (motor6_steps != 0) --motor6_steps;
 		// if (global motor flag == 0) {disable interrupt, motherfucker!};
-		if (motor6_steps == 0) {
+		if (motor6_steps <= 0) {
 			HAL_TIM_PWM_Stop_IT(&htim12, TIM_CHANNEL_1);
 		}
 	}
