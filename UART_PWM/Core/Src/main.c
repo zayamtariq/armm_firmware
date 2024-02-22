@@ -88,8 +88,8 @@ uint16_t total_motor6_steps = 0;
 
 // for holding acceleration and decleration constants for each motor (calculated after parsing uart message)
 /*
- * acceleration_constant = (total_motor_steps * 2) / 10
- * deceleration_constant = (total_motor_steps * 8) / 10
+ * acceleration_constant = (total_motor_steps * 8) / 10
+ * deceleration_constant = (total_motor_steps * 2) / 10
  */
 uint16_t accel1, decel1;
 uint16_t accel2, decel2;
@@ -179,9 +179,110 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+	  if (motor1_steps == 0 && motor2_steps == 0 && motor3_steps == 0 && motor4_steps == 0 && motor5_steps == 0 && motor6_steps == 0) {
+		  // now we can pop off of the UART buffer and re-instantiate all of our variables
+		  UartMessage recent_command = removeFromBuffer(&IK_Message_Buffer, &huart2);
+		  if (!(strcmp(recent_command.message, '\0'))) {} // if there are no messages to pop, we'll continue going on
+		  else {
+			  char command[6];
+			  int motorSteps1, motorFrequency1, motorSteps2, motorFrequency2, motorSteps3, motorFrequency3, motorSteps4, motorFrequency4, motorSteps5, motorFrequency5, motorSteps6, motorFrequency6;
+			  /* command - MOTOR
+			   * motorStepsn - how many pulses are being sent to the motor
+			   * motorFrequencyn - in units of [steps per second]
+			   */
 
-    /* USER CODE BEGIN 3 */
+			  /*
+			   * Direction Pins
+			   * PA11 - motor 1
+			   * PA10 - motor 2
+			   * PA9  - motor 3
+			   * PC9  - motor 4
+			   * PC8  - motor 5
+			   * PC7  - motor 6
+			   *
+			   * for PWM:
+			   * PA8  - motor 1
+			   * PA0  - motor 2
+			   * PA6  - motor 3
+			   * PB6  - motor 4
+			   * PC6  - motor 5
+			   * PB14 - motor 6
+			   *
+			   * for UART:
+			   * PA2 = UART_TX
+			   * PA3 = UART_RX
+			   *
+			   */
+
+			  if (sscanf((char *)recent_command.message, "%s %d %d %d %d %d %d %d %d %d %d %d %d", command, &motorValue1, &motorFrequency1, &motorValue2, &motorFrequency2, &motorValue3, &motorFrequency3, &motorValue4, &motorFrequency4, &motorValue5, &motorFrequency5, &motorValue6, &motorFrequency6) == 13) {
+
+				  if (!(strcmp(command, "MOTOR"))) { // move motor N pulses
+
+					  // populate counter for the number of steps left
+					  motor1_steps = motorValue1;
+					  motor2_steps = motorValue2;
+					  motor3_steps = motorValue3;
+					  motor4_steps = motorValue4;
+					  motor5_steps = motorValue5;
+					  motor6_steps = motorValue6;
+
+					  // populate the total number of steps -- this will not change until the next uart message is processed
+					  total_motor1_steps = motorValue1;
+					  total_motor2_steps = motorValue2;
+					  total_motor3_steps = motorValue3;
+					  total_motor4_steps = motorValue4;
+					  total_motor5_steps = motorValue5;
+					  total_motor6_steps = motorValue6;
+
+					  // calculate the acceleration and deceleration constants here
+					  accel1 = (motorValue1 * 8) / 10;
+					  decel1 = (motorValue1 * 2) / 10;
+					  accel2 = (motorValue2 * 8) / 10;
+					  decel2 = (motorValue2 * 2) / 10;
+					  accel3 = (motorValue3 * 8) / 10;
+					  decel3 = (motorValue3 * 2) / 10;
+					  accel4 = (motorValue4 * 8) / 10;
+					  decel4 = (motorValue4 * 2) / 10;
+					  accel5 = (motorValue5 * 8) / 10;
+					  decel5 = (motorValue5 * 2) / 10;
+					  accel6 = (motorValue6 * 8) / 10;
+					  decel6 = (motorValue6 * 2) / 10;
+
+					  // set direction pins
+					  if (motorValue1 < 0) HAL_GPIO_WritePin(GPIOA, GPIO_PIN_11, GPIO_PIN_RESET); // set direction pin low for negative
+					  else HAL_GPIO_WritePin(GPIOA, GPIO_PIN_11, GPIO_PIN_SET); // set direction pin high for positive
+
+					  if (motorValue2 < 0) HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
+					  else HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);
+
+					  if (motorValue3 < 0) HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_RESET);
+					  else HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_SET);
+
+					  if (motorValue4 < 0) HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_RESET);
+					  else HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_SET);
+
+					  if (motorValue5 < 0) HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_RESET);
+					  else HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_SET);
+
+					  if (motorValue6 < 0) HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_RESET);
+					  else HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_SET);
+
+					  // start motors again
+					  if (motor1_steps != 0) HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_1);
+					  if (motor2_steps != 0) HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_2);
+					  if (motor3_steps != 0) HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_1);
+					  if (motor4_steps != 0) HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_2);
+					  if (motor5_steps != 0) HAL_TIM_PWM_Start_IT(&htim4, TIM_CHANNEL_1);
+					  if (motor6_steps != 0) HAL_TIM_PWM_Start_IT(&htim4, TIM_CHANNEL_2);
+
+					  // just to see some signs of life
+					  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+				  }
+			  }
+		  }
+	  }
   }
+  /* USER CODE BEGIN 3 */
   /* USER CODE END 3 */
 }
 
@@ -720,16 +821,18 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+void accelerationTimerISR()
+{
+
+}
+
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if (htim->Instance == TIM11)
 	{
 		// our acceleration ISR:
-
+		accelerationTimerISR();
 	}
-
-
-
 }
 
 
@@ -767,94 +870,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		  rx_indx = 0; // if user has clicked the enter button, compare our rx_buffer with desired string, then clear the buffer for next message
 		  transfer_cplt = 1; // set flag
 		  HAL_UART_Transmit(&huart2, (uint8_t *)"\n\r", 2, 100);
-
-		  // char command[6];
-		  // int motorSteps1, motorFrequency1, motorSteps2, motorFrequency2, motorSteps3, motorFrequency3, motorSteps4, motorFrequency4, motorSteps5, motorFrequency5, motorSteps6, motorFrequency6;
-		  /* command - MOTOR
-		   * motorStepsn - how many pulses are being sent to the motor
-		   * motorFrequencyn - in units of [steps per second]
-		   */
-
-
-
-		  /*
-		   *
-		   * Direction Pins
-		   * PA11 - motor 1
-		   * PA10 - motor 2
-		   * PA9  - motor 3
-		   * PC9  - motor 4
-		   * PC8  - motor 5
-		   * PC7  - motor 6
-		   *
-		   * for PWM:
-		   * PA8  - motor 1
-		   * PA0  - motor 2
-		   * PA6  - motor 3
-		   * PB6  - motor 4
-		   * PC6  - motor 5
-		   * PB14 - motor 6
-		   *
-		   * for UART:
-		   * PA2 = UART_TX
-		   * PA3 = UART_RX
-		   *
-		   *
-		   */
-
-
-		  /*
-		  if (sscanf((char *)rx_buffer, "%s %d %d %d %d %d %d %d %d %d %d %d %d", command, &motorValue1, &motorFrequency1, &motorValue2, &motorFrequency2, &motorValue3, &motorFrequency3, &motorValue4, &motorFrequency4, &motorValue5, &motorFrequency5, &motorValue6, &motorFrequency6) == 13) {
-
-			  if (!(strcmp(command, "MOTOR"))) { // move motor N pulses
-
-				  // populate counter for the number of steps left
-				  motor1_steps = motorValue1;
-				  motor2_steps = motorValue2;
-				  motor3_steps = motorValue3;
-				  motor4_steps = motorValue4;
-				  motor5_steps = motorValue5;
-				  motor6_steps = motorValue6;
-
-				  // populate the total number of steps -- this will not change until the next uart message is processed
-
-				  // calculate the acceleration and deceleration constants here
-
-
-				  // set direction pins
-				  if (motorValue1 < 0) HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET); // set direction pin low for negative
-				  else HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET); // set direction pin high for positive
-
-				  if (motorValue2 < 0) HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_RESET);
-				  else HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_SET);
-
-				  if (motorValue3 < 0) HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
-				  else HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
-
-				  if (motorValue4 < 0) HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_RESET);
-				  else HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_SET);
-
-				  if (motorValue5 < 0) HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_RESET);
-				  else HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_SET);
-
-				  if (motorValue6 < 0) HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_RESET);
-				  else HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_SET);
-
-				  // start motors again
-				  if (motor1_steps != 0) HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_1);
-				  if (motor2_steps != 0) HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_2);
-				  if (motor3_steps != 0) HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_1);
-				  if (motor4_steps != 0) HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_2);
-				  if (motor5_steps != 0) HAL_TIM_PWM_Start_IT(&htim4, TIM_CHANNEL_1);
-				  if (motor6_steps != 0) HAL_TIM_PWM_Start_IT(&htim4, TIM_CHANNEL_2);
-
-				  // just to see some signs of life
-				  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-			  }
-		  }
-		  */
 	  }
-
 
 	  HAL_UART_Receive_IT(&huart2, rx_data, 1); // initialize to interrupt based receive
 	  HAL_UART_Transmit(&huart2, rx_data, strlen((char *)rx_data), 100); // initialize to transmit as we write new data to the rx_data byte(s)
@@ -915,11 +931,6 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 		if (motor6_steps == 0) {
 			HAL_TIM_PWM_Stop_IT(&htim12, TIM_CHANNEL_1);
 		}
-	}
-
-	if (motor1_steps == 0 && motor2_steps == 0 && motor3_steps == 0 && motor4_steps == 0 && motor5_steps == 0 && motor6_steps == 0) {
-		// all motors have stopped from the most recent message, and now we can push off of the buffer once again
-
 	}
 }
 
