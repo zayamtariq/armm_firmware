@@ -79,12 +79,14 @@ uint16_t motor5_steps = 0;
 uint16_t motor6_steps = 0;
 
 // for storing the total number of steps for motor at start (updated at uart message)
+// dont think we need this anymore
+/*
 uint16_t total_motor1_steps = 0;
 uint16_t total_motor2_steps = 0;
 uint16_t total_motor3_steps = 0;
 uint16_t total_motor4_steps = 0;
 uint16_t total_motor5_steps = 0;
-uint16_t total_motor6_steps = 0;
+uint16_t total_motor6_steps = 0;*/
 
 // for holding acceleration and decleration constants for each motor (calculated after parsing uart message)
 /*
@@ -97,6 +99,30 @@ uint16_t accel3, decel3;
 uint16_t accel4, decel4;
 uint16_t accel5, decel5;
 uint16_t accel6, decel6;
+
+// incrementer/decrementer for each motor based on frequency provided at uart command
+uint16_t incrementer_decrementer1 = 0;
+uint16_t incrementer_decrementer2 = 0;
+uint16_t incrementer_decrementer3 = 0;
+uint16_t incrementer_decrementer4 = 0;
+uint16_t incrementer_decrementer5 = 0;
+uint16_t incrementer_decrementer6 = 0;
+
+// current frequencies in SPS
+uint16_t current_freq1 = 0;
+uint16_t current_freq2 = 0;
+uint16_t current_freq3 = 0;
+uint16_t current_freq4 = 0;
+uint16_t current_freq5 = 0;
+uint16_t current_freq6 = 0;
+
+// total frequencies needed to meet in SPS
+uint16_t total_freq1 = 0;
+uint16_t total_freq2 = 0;
+uint16_t total_freq3 = 0;
+uint16_t total_freq4 = 0;
+uint16_t total_freq5 = 0;
+uint16_t total_freq6 = 0;
 
 /* USER CODE END PV */
 
@@ -227,12 +253,30 @@ int main(void)
 					  motor6_steps = motorValue6;
 
 					  // populate the total number of steps -- this will not change until the next uart message is processed
+					  // (dont think we need this for our implementation)
+					  /*
 					  total_motor1_steps = motorValue1;
 					  total_motor2_steps = motorValue2;
 					  total_motor3_steps = motorValue3;
 					  total_motor4_steps = motorValue4;
 					  total_motor5_steps = motorValue5;
-					  total_motor6_steps = motorValue6;
+					  total_motor6_steps = motorValue6;*/
+
+					  // populate total frequency trying to reach
+					  total_freq1 = motorFrequency1;
+					  total_freq2 = motorFrequency2;
+					  total_freq3 = motorFrequency3;
+					  total_freq4 = motorFrequency4;
+					  total_freq5 = motorFrequency5;
+					  total_freq6 = motorFrequency6;
+
+					  // populate current frequency that timer will initially run at
+					  current_freq1 = motorFrequency1 / 2;
+					  current_freq2 = motorFrequency2 / 2;
+					  current_freq3 = motorFrequency3 / 2;
+					  current_freq4 = motorFrequency4 / 2;
+					  current_freq5 = motorFrequency5 / 2;
+					  current_freq6 = motorFrequency6 / 2;
 
 					  // calculate the acceleration and deceleration constants here
 					  accel1 = (motorValue1 * 8) / 10;
@@ -267,13 +311,31 @@ int main(void)
 					  if (motorValue6 < 0) HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_RESET);
 					  else HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_SET);
 
-					  // start motors again
-					  if (motor1_steps != 0) HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_1);
-					  if (motor2_steps != 0) HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_2);
+					  // calculate incrementer for acceleration based GPIO:
+					  // formula -> incrementer_decrementerN = (SPS / 2) * ((total number of pulses) * 2 / 10)
+					  incrementer_decrementer1 = (motorFrequency1 * 5) / (2 * motorValue1);
+					  incrementer_decrementer2 = (motorFrequency2 * 5) / (2 * motorValue2);
+					  incrementer_decrementer3 = (motorFrequency3 * 5) / (2 * motorValue3);
+					  incrementer_decrementer4 = (motorFrequency4 * 5) / (2 * motorValue4);
+					  incrementer_decrementer5 = (motorFrequency5 * 5) / (2 * motorValue5);
+					  incrementer_decrementer6 = (motorFrequency6 * 5) / (2 * motorValue6);
+
+					  // __HAL_TIM_SET_AUTORELOAD(__HANDLE__, __AUTORELOAD__)
+					  // change period to whatever period oughta be
+					  __HAL_TIM_SET_AUTORELOAD(&htim1, (84000000) / (motorFrequency1 / 2));
+					  __HAL_TIM_SET_AUTORELOAD(&htim2, (84000000) / (motorFrequency2 / 2));
+					  __HAL_TIM_SET_AUTORELOAD(&htim3, (84000000) / (motorFrequency3 / 2));
+					  __HAL_TIM_SET_AUTORELOAD(&htim4, (84000000) / (motorFrequency4 / 2));
+					  __HAL_TIM_SET_AUTORELOAD(&htim8, (84000000) / (motorFrequency5 / 2));
+					  __HAL_TIM_SET_AUTORELOAD(&htim12, (84000000) / (motorFrequency6 / 2));
+
+					  // start motors again (at frequency of motorFrequencyn / 2)
+					  if (motor1_steps != 0) HAL_TIM_PWM_Start_IT(&htim1, TIM_CHANNEL_1);
+					  if (motor2_steps != 0) HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_1);
 					  if (motor3_steps != 0) HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_1);
-					  if (motor4_steps != 0) HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_2);
-					  if (motor5_steps != 0) HAL_TIM_PWM_Start_IT(&htim4, TIM_CHANNEL_1);
-					  if (motor6_steps != 0) HAL_TIM_PWM_Start_IT(&htim4, TIM_CHANNEL_2);
+					  if (motor4_steps != 0) HAL_TIM_PWM_Start_IT(&htim4, TIM_CHANNEL_1);
+					  if (motor5_steps != 0) HAL_TIM_PWM_Start_IT(&htim8, TIM_CHANNEL_1);
+					  if (motor6_steps != 0) HAL_TIM_PWM_Start_IT(&htim12, TIM_CHANNEL_1);
 
 					  // just to see some signs of life
 					  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
@@ -823,7 +885,63 @@ static void MX_GPIO_Init(void)
 
 void accelerationTimerISR()
 {
+	// update frequency of pwm timers
 
+	if (motor1_steps >= accel1) {
+		current_freq1 += incrementer_decrementer1;
+	} else if (motor1_steps <= decel1 && motor1_steps != 0) {
+		current_freq1 -= incrementer_decrementer1;
+	} else if (motor1_steps > accel1 && motor1_steps < decel1) {
+		current_freq1 = total_freq1;
+	}
+
+	if (motor2_steps >= accel2) {
+		current_freq2 += incrementer_decrementer2;
+	} else if (motor2_steps <= decel2 && motor2_steps != 0) {
+		current_freq2 -= incrementer_decrementer2;
+	} else if (motor2_steps > accel2 && motor2_steps < decel2) {
+		current_freq2 = total_freq2;
+	}
+
+	if (motor3_steps >= accel3) {
+		current_freq3 += incrementer_decrementer3;
+	} else if (motor3_steps <= decel3 && motor3_steps != 0) {
+		current_freq3 -= incrementer_decrementer3;
+	} else if (motor3_steps > accel3 && motor3_steps < decel3) {
+		current_freq3 = total_freq3;
+	}
+
+	if (motor4_steps >= accel4) {
+		current_freq4 += incrementer_decrementer4;
+	} else if (motor4_steps <= decel1 && motor4_steps != 0) {
+		current_freq4 -= incrementer_decrementer4;
+	} else if (motor4_steps > accel1 && motor4_steps < decel1) {
+		current_freq4 = total_freq4;
+	}
+
+	if (motor5_steps >= accel5) {
+		current_freq5 += incrementer_decrementer5;
+	} else if (motor5_steps <= decel5 && motor5_steps != 0) {
+		current_freq5 -= incrementer_decrementer5;
+	} else if (motor5_steps > accel5 && motor5_steps < decel5) {
+		current_freq5 = total_freq5;
+	}
+
+	if (motor6_steps >= accel6) {
+		current_freq6 += incrementer_decrementer6;
+	} else if (motor6_steps <= decel6 && motor6_steps != 0) {
+		current_freq6 -= incrementer_decrementer6;
+	} else if (motor6_steps > accel6 && motor6_steps < decel6) {
+		current_freq6 = total_freq6;
+	}
+
+	// update all our periods now
+	__HAL_TIM_SET_AUTORELOAD(&htim1, (84000000) / current_freq1);
+	__HAL_TIM_SET_AUTORELOAD(&htim2, (84000000) / current_freq2);
+	__HAL_TIM_SET_AUTORELOAD(&htim3, (84000000) / current_freq3);
+	__HAL_TIM_SET_AUTORELOAD(&htim4, (84000000) / current_freq4);
+	__HAL_TIM_SET_AUTORELOAD(&htim8, (84000000) / current_freq5);
+	__HAL_TIM_SET_AUTORELOAD(&htim12, (84000000) / current_freq6);
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
