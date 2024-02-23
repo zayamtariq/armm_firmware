@@ -177,9 +177,6 @@ int main(void)
   // initialize UART buffer:
   initializeBuffer(&IK_Message_Buffer);
 
-  // start timer 11
-  HAL_TIM_Base_Start_IT(&htim11);
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -303,6 +300,9 @@ int main(void)
 					  __HAL_TIM_SET_AUTORELOAD(&htim8, (84000000) / (motorFrequency5 / 2));
 					  __HAL_TIM_SET_AUTORELOAD(&htim12, (84000000) / (motorFrequency6 / 2));
 
+
+					  __disable_irq();
+
 					  // start motors again (at frequency of motorFrequencyn / 2)
 					  if (motor1_steps != 0) HAL_TIM_PWM_Start_IT(&htim1, TIM_CHANNEL_1);
 					  if (motor2_steps != 0) HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_1);
@@ -310,6 +310,11 @@ int main(void)
 					  if (motor4_steps != 0) HAL_TIM_PWM_Start_IT(&htim4, TIM_CHANNEL_1);
 					  if (motor5_steps != 0) HAL_TIM_PWM_Start_IT(&htim8, TIM_CHANNEL_1);
 					  if (motor6_steps != 0) HAL_TIM_PWM_Start_IT(&htim12, TIM_CHANNEL_1);
+
+					  // start timer 11
+					  HAL_TIM_Base_Start_IT(&htim11);
+
+					  __enable_irq();
 
 					  // just to see some signs of life
 					  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
@@ -862,10 +867,13 @@ void accelerationTimerISR()
 
 	if (motor1_steps >= accel1) {
 		current_freq1 += incrementer_decrementer1;
+		HAL_UART_Transmit(&huart2, (uint8_t *)"Accelerating 1\n", 15, 100);
 	} else if (motor1_steps <= decel1 && motor1_steps != 0) {
 		current_freq1 -= incrementer_decrementer1;
+		HAL_UART_Transmit(&huart2, (uint8_t *)"Decelerating 1\n", 15, 100);
 	} else if (motor1_steps < accel1 && motor1_steps > decel1) {
 		current_freq1 = total_freq1;
+		HAL_UART_Transmit(&huart2, (uint8_t *)"Chilling 1\n", 11, 100);
 	}
 
 	if (motor2_steps >= accel2) {
@@ -975,8 +983,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 // this function gets called every time that *some* PWM timer sends a pulse
 void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 {
-	HAL_UART_Transmit(&huart2, (uint8_t *)"PULSE\n", 6, 100);
-
 	if (htim->Instance == TIM1) {
 		// --global_motor_flag;
 		if (motor1_steps != 0) --motor1_steps;
