@@ -189,7 +189,10 @@ int main(void)
 	  if (motor1_steps == 0 && motor2_steps == 0 && motor3_steps == 0 && motor4_steps == 0 && motor5_steps == 0 && motor6_steps == 0) {
 		  // now we can pop off of the UART buffer and re-instantiate all of our variables
 		  UartMessage recent_command = removeFromBuffer(&IK_Message_Buffer, &huart2);
-		  if (!(strcmp(recent_command.message, "\0"))) {} // if there are no messages to pop, we'll continue going on
+		  if (!(strcmp(recent_command.message, "\0"))) {
+			  // stop timer 11
+			  HAL_TIM_Base_Stop_IT(&htim11); // start again when motor command comes through
+		  } // if there are no messages to pop, we'll continue polling
 		  else {
 			  char command[6];
 			  int motorValue1, motorFrequency1, motorValue2, motorFrequency2, motorValue3, motorFrequency3, motorValue4, motorFrequency4, motorValue5, motorFrequency5, motorValue6, motorFrequency6;
@@ -283,13 +286,12 @@ int main(void)
 					  else HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_SET);
 
 					  // calculate incrementer for acceleration based GPIO:
-					  // formula -> incrementer_decrementerN = (SPS / 2) / ((total number of pulses) * 2 / 10)
-					  incrementer_decrementer1 = (motorFrequency1 * 5) / (2 * motorValue1);
-					  incrementer_decrementer2 = (motorFrequency2 * 5) / (2 * motorValue2);
-					  incrementer_decrementer3 = (motorFrequency3 * 5) / (2 * motorValue3);
-					  incrementer_decrementer4 = (motorFrequency4 * 5) / (2 * motorValue4);
-					  incrementer_decrementer5 = (motorFrequency5 * 5) / (2 * motorValue5);
-					  incrementer_decrementer6 = (motorFrequency6 * 5) / (2 * motorValue6);
+					  incrementer_decrementer1 = ((((84000000 / total_freq1) - (84000000 / (total_freq1 / 2))) / 2) + (84000000 / total_freq1)) * (decel1 / 65535);
+					  incrementer_decrementer2 = ((((84000000 / total_freq2) - (84000000 / (total_freq2 / 2))) / 2) + (84000000 / total_freq2)) * (decel2 / 65535);
+					  incrementer_decrementer3 = ((((84000000 / total_freq3) - (84000000 / (total_freq3 / 2))) / 2) + (84000000 / total_freq3)) * (decel3 / 65535);
+					  incrementer_decrementer4 = ((((84000000 / total_freq4) - (84000000 / (total_freq4 / 2))) / 2) + (84000000 / total_freq4)) * (decel4 / 65535);
+					  incrementer_decrementer5 = ((((84000000 / total_freq5) - (84000000 / (total_freq5 / 2))) / 2) + (84000000 / total_freq5)) * (decel5 / 65535);
+					  incrementer_decrementer6 = ((((84000000 / total_freq6) - (84000000 / (total_freq6 / 2))) / 2) + (84000000 / total_freq6)) * (decel6 / 65535);
 
 					  // __HAL_TIM_SET_AUTORELOAD(__HANDLE__, __AUTORELOAD__)
 					  // change period to whatever period oughta be
@@ -916,6 +918,14 @@ void accelerationTimerISR()
 		current_freq6 = total_freq6;
 	}
 
+	// stop all timers
+	HAL_TIM_PWM_Stop_IT(&htim1, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Stop_IT(&htim2, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Stop_IT(&htim3, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Stop_IT(&htim4, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Stop_IT(&htim8, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Stop_IT(&htim12, TIM_CHANNEL_1);
+
 	// update all our periods now
 	__HAL_TIM_SET_AUTORELOAD(&htim1, (84000000) / current_freq1);
 	__HAL_TIM_SET_AUTORELOAD(&htim2, (84000000) / current_freq2);
@@ -923,13 +933,20 @@ void accelerationTimerISR()
 	__HAL_TIM_SET_AUTORELOAD(&htim4, (84000000) / current_freq4);
 	__HAL_TIM_SET_AUTORELOAD(&htim8, (84000000) / current_freq5);
 	__HAL_TIM_SET_AUTORELOAD(&htim12, (84000000) / current_freq6);
+
+	// start timers with new periods
+	if (motor1_steps > 0) HAL_TIM_PWM_Start_IT(&htim1, TIM_CHANNEL_1);
+	if (motor2_steps > 0) HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_1);
+	if (motor3_steps > 0) HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_1);
+	if (motor4_steps > 0) HAL_TIM_PWM_Start_IT(&htim4, TIM_CHANNEL_1);
+	if (motor5_steps > 0) HAL_TIM_PWM_Start_IT(&htim8, TIM_CHANNEL_1);
+	if (motor6_steps > 0) HAL_TIM_PWM_Start_IT(&htim12, TIM_CHANNEL_1);
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if (htim->Instance == TIM11)
 	{
-		// our acceleration ISR:
 		accelerationTimerISR();
 	}
 }
