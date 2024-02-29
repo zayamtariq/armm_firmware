@@ -43,6 +43,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim5;
 
 UART_HandleTypeDef huart2;
 
@@ -63,6 +64,14 @@ UartBuffer IK_Message_Buffer;
 
 int motor1_steps = 0;
 
+int steps_to_accelerate1 = 0;
+int steps_to_decelerate1 = 0;
+
+int current_frequency1 = 0;
+int total_frequency1 = 0;
+
+int dv_dt1 = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -70,6 +79,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_TIM5_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -109,6 +119,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   MX_TIM1_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
 
   // start UART:
@@ -143,12 +154,23 @@ int main(void)
 					  // populate counter for the number of steps left
 					  motor1_steps = motorValue1;
 
+					  total_frequency1 = motorFrequency1; // what we're accelerating to/decelerating from
+					  current_frequency1 = (motorFrequency1 / 3); // starting speed
+
+					  steps_to_accelerate1 = (motor1_steps * 8) / 10;
+					  steps_to_decelerate1 = (motor1_steps * 2) / 10;
+
+					  dv_dt1 = (total_frequency1 * 8) / 100;
+
 					  // set period for PWM module via given motor frequency
 					  // reload_value = period = (84 mhz clocked mcu / frequency)
-					  __HAL_TIM_SET_AUTORELOAD(&htim1, 84000000 / motorFrequency1);
+					  __HAL_TIM_SET_AUTORELOAD(&htim1, 84000000 / current_frequency1);
 
 					  // start pwm with number of steps needed
 					  if (motor1_steps != 0) HAL_TIM_PWM_Start_IT(&htim1, TIM_CHANNEL_1);
+
+					  // then start the timer 5 jawn
+					  HAL_TIM_Base_Start_IT(&htim5);
 
 					  // toggle pin to see signs of life
 					  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
@@ -283,6 +305,51 @@ static void MX_TIM1_Init(void)
 }
 
 /**
+  * @brief TIM5 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM5_Init(void)
+{
+
+  /* USER CODE BEGIN TIM5_Init 0 */
+
+  /* USER CODE END TIM5_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM5_Init 1 */
+
+  /* USER CODE END TIM5_Init 1 */
+  htim5.Instance = TIM5;
+  htim5.Init.Prescaler = 0;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim5.Init.Period = 90000;
+  htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim5, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM5_Init 2 */
+
+  /* USER CODE END TIM5_Init 2 */
+
+}
+
+/**
   * @brief USART2 Initialization Function
   * @param None
   * @retval None
@@ -350,6 +417,27 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+void accelerationTimerISR() {
+	if (motor1_steps >= steps_to_accelerate1 && (current_frequency1 < total_frequency1)) {
+		current_frequency1 += dv_dt1;
+	} else if (motor1_steps <= steps_to_decelerate1) {
+		current_frequency1 -= dv_dt1;
+	} else {
+		current_frequency1 = total_frequency1;
+	}
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	__disable_irq();
+	if (htim->Instance == TIM5)
+	{
+		accelerationTimerISR();
+	}
+	__enable_irq();
+}
+
+
 // we come to this function after a successful receive
 // huart = the uart that was configured for this receive
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
@@ -411,6 +499,12 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 		if (motor1_steps <= 0) {
 			motor1_steps = 0;
 			HAL_TIM_PWM_Stop_IT(&htim1, TIM_CHANNEL_1); // stop the pulsing HERE
+		} else {
+			HAL_TIM_PWM_Stop_IT(&htim1, TIM_CHANNEL_1);
+
+			__HAL_TIM_SET_AUTORELOAD(&htim1, 84000000 / current_frequency1);
+
+			HAL_TIM_PWM_Start_IT(&htim1, TIM_CHANNEL_1);
 		}
 	}
 	__enable_irq();
