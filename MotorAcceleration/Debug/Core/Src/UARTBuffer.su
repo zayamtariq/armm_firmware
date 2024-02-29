@@ -1,0 +1,3 @@
+../Core/Src/UARTBuffer.c:8:6:initializeBuffer	16	static
+../Core/Src/UARTBuffer.c:16:5:addToBuffer	24	static
+../Core/Src/UARTBuffer.c:29:13:removeFromBuffer	424	static
