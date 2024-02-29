@@ -130,15 +130,22 @@ int main(void)
 
 		  UartMessage recent_command = removeFromBuffer(&IK_Message_Buffer, &huart2);
 
-		  if (!(strcmp(recent_command.message, "\0"))) {} // nothing for us, keep on going
+		  if (!(strcmp(recent_command.message, "\0"))) {
+			  // HAL_UART_Transmit(&huart2, (uint8_t *) "no message :( \n\r", 16, 100);
+		  } // nothing for us, keep on going
 		  else { // we have a message
 			  char command[6]; // what is the command
 			  int motorValue1; // how many steps will we take in ?
+			  int motorFrequency1; // given in terms of steps per second
 
-			  if (sscanf((char *)recent_command.message, "%s %d", command, &motorValue1) == 2) {
+			  if (sscanf((char *)recent_command.message, "%s %d %d", command, &motorValue1, &motorFrequency1) == 3) {
 				  if (!(strcmp(command, "MOTOR"))) {
 					  // populate counter for the number of steps left
 					  motor1_steps = motorValue1;
+
+					  // set period for PWM module via given motor frequency
+					  // reload_value = period = (84 mhz clocked mcu / frequency)
+					  __HAL_TIM_SET_AUTORELOAD(&htim1, 84000000 / motorFrequency1);
 
 					  // start pwm with number of steps needed
 					  if (motor1_steps != 0) HAL_TIM_PWM_Start_IT(&htim1, TIM_CHANNEL_1);
@@ -148,13 +155,6 @@ int main(void)
 				  }
 			  }
 		  }
-		  /*
-		  if (!(strcmp(recent_command.message, ""))) {
-			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-		  } else if (!(strcmp(recent_command.message, "OFF"))) {
-			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-		  }*/
-
 	  }
   }
   /* USER CODE END 3 */
@@ -254,7 +254,7 @@ static void MX_TIM1_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 50;
+  sConfigOC.Pulse = 1000;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
@@ -398,20 +398,22 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 // this function gets called every time that *some* PWM timer sends a pulse
 void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 {
+	__disable_irq();
+	/*
 	char motor1_steps_debug[5];
 	itoa(motor1_steps, motor1_steps_debug, 10);
 
 	HAL_UART_Transmit(&huart2, (uint8_t *) motor1_steps_debug, 5, 100);
-	HAL_UART_Transmit(&huart2, (uint8_t *)"\n\r", 2, 100);
+	HAL_UART_Transmit(&huart2, (uint8_t *)"\n\r", 2, 100);*/
 
 	if (htim->Instance == TIM1) {
-		// --global_motor_flag;
-		if (motor1_steps != 0) --motor1_steps;
+		--motor1_steps;
 		if (motor1_steps <= 0) {
 			motor1_steps = 0;
 			HAL_TIM_PWM_Stop_IT(&htim1, TIM_CHANNEL_1); // stop the pulsing HERE
 		}
 	}
+	__enable_irq();
 }
 
 /* USER CODE END 4 */
